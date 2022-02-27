@@ -2,11 +2,13 @@ import { Menu, Popover, Transition } from "@headlessui/react";
 import { BellIcon, MenuIcon, XIcon } from "@heroicons/react/outline";
 import { SearchIcon } from "@heroicons/react/solid";
 import detectEthereumProvider from "@metamask/detect-provider";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TypeAnimation from "react-type-animation";
+import { v4 } from "uuid";
 import { navigation, userNavigation } from ".";
 import { Dropdown } from "../../Components/Dropdown";
+import firebase from "../../firebase";
 import { checkIfRegistered, intiializeUser } from "../../Services/Auth";
 
 const genres = [
@@ -51,6 +53,9 @@ const Create = () => {
   const [user, setUser] = useState(null);
   const [selectedGenre, setSelectedGenre] = useState(genres[0]);
   const [fileUrl, setFileUrl] = useState("");
+  const [uploading, setUploading] = useState(0);
+  const inputRef = useRef();
+  const nameRef = useRef();
 
   useEffect(async () => {
     const provider = await detectEthereumProvider();
@@ -103,15 +108,73 @@ const Create = () => {
     setStarted(true);
   }, [user]);
 
+  const handleFileChange = e => {
+    const file = e.target.files[0];
+
+    if (!file || !file.type || !file.type.startsWith("audio")) {
+      alert("Please upload an audio file");
+      e.target.files = null;
+      inputRef.current.value = null;
+      return;
+    }
+
+    const id = v4();
+    const ref = firebase.storage().ref().child(`audio/${id}`);
+    const event = ref.put(file);
+
+    event.on(
+      "state_changed",
+      snapshot => {
+        const progress =
+          (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploading(snapshot.bytesTransferred / snapshot.totalBytes);
+        console.log("Upload is " + progress + "% done");
+      },
+      error => {
+        console.log(error);
+      },
+      () => {
+        ref.getDownloadURL().then(url => {
+          setFileUrl(url);
+          console.log(url);
+        });
+      },
+    );
+
+    console.log(file);
+  };
+
+  const uploadSong = () => {
+    const name = nameRef.current.value;
+    const genre = selectedGenre.name;
+    const file = fileUrl;
+    const token = window.localStorage.getItem("token");
+
+    if (!name || !genre || !file) {
+      alert("Please fill out all the fields");
+      return;
+    }
+
+    firebase
+      .firestore()
+      .collection("songs")
+      .add({
+        name,
+        genre,
+        fileUrl: file,
+        authorId: token,
+        createdAt: new Date(),
+        author: user,
+      })
+      .then(res => {
+        console.log(res);
+        navigate("/app/song/" + res.id);
+      })
+      .catch(err => alert(err));
+  };
+
   return started ? (
     <>
-      <div>
-        FileUrl :{" "}
-        <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-          {fileUrl}
-        </a>
-      </div>
-
       <div className="min-h-full">
         <Popover as="header" className="pb-24 bg-gray-900">
           {({ open }) => (
@@ -389,6 +452,7 @@ const Create = () => {
                           <input
                             type="email"
                             name="email"
+                            ref={nameRef}
                             id="email"
                             className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                             placeholder="eg. qoobes' shuffle truffle"
@@ -409,29 +473,55 @@ const Create = () => {
                             selected={selectedGenre}
                             setSelected={setSelectedGenre}
                           />
-
-                          <button
-                            type="button"
-                            className=" mt-3 inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-white bg-indigo-500 hover:bg-indigo-400 transition ease-in-out duration-150 "
-                          >
-                            Browse the music
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </section>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:col-span-2">
-                <section aria-labelledby="section-1-title">
-                  <h2 className="sr-only" id="section-1-title">
-                    Section title
-                  </h2>
-                  <div className="rounded-lg bg-white overflow-hidden shadow">
-                    <div className="p-6 " style={{ minHeight: "500px" }}>
-                      <h1 className="font-bold text-xl">
-                        <span className="text-cyan-600">#</span> Your Feed
-                      </h1>
+                      <div className="max-w-md mt-5">
+                        <label
+                          htmlFor="email"
+                          className="block text-sm font-medium text-gray-700"
+                        >
+                          Upload your song
+                        </label>
+                        {!uploading ? (
+                          <div className="mt-1">
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={handleFileChange}
+                              ref={inputRef}
+                            />
+                            <button
+                              onClick={() => inputRef.current.click()}
+                              type="button"
+                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                              Choose a file
+                            </button>
+                          </div>
+                        ) : uploading === 1 ? (
+                          <div className="mt-1">
+                            <div className="w-md relative items-center py-1.5 border border-transparent text-sm font-medium rounded text-indigo-700 bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                              Song Sucessfully Uploaded ✅
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-1">
+                            <div className="w-md relative items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-indigo-300 z-10 transition-all duration-1000"
+                                style={{ width: `${uploading * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className=" mt-3 inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-white bg-indigo-500 hover:bg-indigo-400 transition ease-in-out duration-150 "
+                          onClick={uploadSong}
+                        >
+                          Publish your song
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </section>

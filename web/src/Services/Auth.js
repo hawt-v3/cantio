@@ -6,7 +6,32 @@ export const checkIfRegistered = async key => {
     return null;
   }
 
-  return await user.data();
+  let likedSongs = await firebase
+    .firestore()
+    .collection("users")
+    .doc(key)
+    .collection("likedSongs")
+    .get();
+
+  likedSongs = likedSongs.docs.map(doc => ({
+    ...doc.data(),
+    id: doc.id,
+  }));
+
+  let follows = await firebase
+    .firestore()
+    .collection("users")
+    .doc(key)
+    .collection("following")
+    .get();
+
+  follows = follows.docs.map(doc => ({
+    ...doc.data(),
+    id: doc.id,
+  }));
+  console.log(follows);
+
+  return { ...user.data(), likedSongs, follows };
 };
 
 export const intiializeUser = async key =>
@@ -14,4 +39,4 @@ export const intiializeUser = async key =>
     .firestore()
     .collection("users")
     .doc(key)
-    .set({ init: false, profilePic: `https://robohash.org/${key}` });
+    .set({ init: false, key, profilePic: `https://robohash.org/${key}` });

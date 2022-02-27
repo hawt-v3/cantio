@@ -11,32 +11,21 @@ import detectEthereumProvider from "@metamask/detect-provider";
 import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TypeAnimation from "react-type-animation";
+import { navigation, userNavigation } from ".";
 import firebase from "../../firebase";
 import { checkIfRegistered, intiializeUser } from "../../Services/Auth";
-import { getFeed } from "../../Services/Feed";
-
-export const navigation = [
-  { name: "Home", href: "/app", current: false },
-  { name: "Browse", href: "/app/browse", current: false },
-  { name: "Profile", href: "/app/profile", current: false },
-  { name: "Add a song", href: "/app/create", current: false },
-];
-
-export const userNavigation = [
-  { name: "Your Profile", href: "#" },
-  { name: "Settings", href: "#" },
-  { name: "Sign out", href: "#" },
-];
+import { getBrowse } from "../../Services/Feed";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function App() {
+export default function Browse() {
   const navigate = useNavigate();
   const [started, setStarted] = useState();
   const [user, setUser] = useState(null);
   const [feed, setFeed] = useState();
+  const [query, setQuery] = useState("");
 
   useEffect(async () => {
     const provider = await detectEthereumProvider();
@@ -106,8 +95,22 @@ export default function App() {
     if (!user) return;
     const token = window.localStorage.getItem("token");
 
-    getFeed(token).then(res => {
-      setFeed(res);
+    getBrowse(token).then(songs => {
+      const sortedSongs = {};
+      songs.songs.forEach(song => {
+        if (!sortedSongs[song.genre]) {
+          sortedSongs[song.genre] = [];
+        }
+        sortedSongs[song.genre].push(song);
+      });
+      const sorted = [];
+      Object.keys(sortedSongs).forEach(genre => {
+        sorted.push({
+          genre,
+          songs: sortedSongs[genre],
+        });
+      });
+      setFeed(sorted);
     });
 
     setStarted(true);
@@ -242,6 +245,8 @@ export default function App() {
                         </div>
                         <input
                           id="desktop-search"
+                          onChange={e => console.log(e)}
+                          value={query}
                           className="block w-full bg-white bg-opacity-20 py-2 pl-10 pr-3 border border-transparent rounded-md leading-5 text-gray-900 placeholder-white focus:outline-none focus:bg-opacity-100 focus:border-transparent focus:placeholder-gray-500 focus:ring-0 sm:text-sm"
                           placeholder="Search"
                           type="search"
@@ -300,6 +305,8 @@ export default function App() {
                           </div>
                           <input
                             id="mobile-search"
+                            onChange={e => setQuery(e)}
+                            value={query}
                             className="block w-full bg-white bg-opacity-20 py-2 pl-10 pr-3 border border-transparent rounded-md leading-5 text-gray-900 placeholder-white focus:outline-none focus:bg-opacity-100 focus:border-transparent focus:placeholder-gray-500 focus:ring-0 sm:text-sm"
                             placeholder="Search"
                             type="search"
@@ -426,95 +433,8 @@ export default function App() {
               {/* Left column */}
 
               {/* Right column */}
-              <div className="grid grid-cols-1 gap-4">
-                <section aria-labelledby="section-2-title">
-                  <h2 className="sr-only" id="section-2-title">
-                    Section title
-                  </h2>
-                  <div className="rounded-lg bg-white overflow-hidden shadow">
-                    <div className="p-6" style={{ minHeight: "500px" }}>
-                      <h1 className="font-bold text-xl">
-                        <span className="text-cyan-600">#</span> Recommendations
-                      </h1>
-                      {/* 3-4 users here to recommend */}
-                      {feed ? (
-                        feed.artists.map(
-                          (artist, key) =>
-                            artist.id !== localStorage.getItem("token") && (
-                              <div className="w-full p-2 flex items-center justify-between rounded-lg">
-                                <div className="flex items-center">
-                                  <img
-                                    src={`https://robohash.org/${artist.id}`}
-                                    alt="user image"
-                                    width="40px"
-                                    className="rounded-full border border-gray-200"
-                                  />
-                                  <p className="ml-2 font-bold">
-                                    {artist.username}
-                                  </p>
-                                </div>
 
-                                {user.follows &&
-                                user.follows.find(
-                                  uuser => uuser.id === artist.id,
-                                ) ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => unfollowUser(artist)}
-                                    className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-white bg-indigo-500 hover:bg-indigo-400 transition ease-in-out duration-150"
-                                    // onclick unfollow
-                                    disabled=""
-                                  >
-                                    Following
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => followUser(artist)}
-                                    className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-gray-800 bg-gray-200 hover:bg-gray-300 transition ease-in-out duration-150"
-                                    // onclick follow
-                                    disabled=""
-                                  >
-                                    Follow
-                                  </button>
-                                )}
-                              </div>
-                            ),
-                        )
-                      ) : (
-                        <button
-                          type="button"
-                          className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm rounded-md text-black bg-white hover:bg-white transition ease-in-out duration-150 cursor-not-allowed"
-                          disabled=""
-                        >
-                          <svg
-                            className="animate-spin -ml-1 mr-3 h-5 w-5 text-black"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            ></circle>
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            ></path>
-                          </svg>
-                          Loading your feed
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:col-span-2">
+              <div className="grid grid-cols-1 gap-4 lg:col-span-4">
                 <section aria-labelledby="section-1-title">
                   <h2 className="sr-only" id="section-1-title">
                     Section title
@@ -522,82 +442,100 @@ export default function App() {
                   <div className="rounded-lg bg-white overflow-hidden shadow">
                     <div className="p-6 " style={{ minHeight: "500px" }}>
                       <h1 className="font-bold text-xl">
-                        <span className="text-cyan-600">#</span> Your Feed
+                        <span className="text-cyan-600">#</span> Browse our
+                        music
                       </h1>
                       {feed ? (
-                        feed.songs.map((song, key) => (
-                          <div
-                            className="w-full p-2 flex items-center justify-between rounded-lg bg-gray-100 mt-3"
-                            key={key}
-                          >
-                            <audio id={song.id} controlsList="nodownload">
-                              <source src={song.fileUrl} type="audio/mp3" />
-                              <source src={song.fileUrl} type="audio/aac" />
-                              <source src={song.fileUrl} type="audio/flac" />
-                            </audio>
-
-                            <div className="flex items-center">
-                              <PlayIcon
-                                id={`${song.id}-play`}
-                                className="w-5 h-5 ml-2 cursor-pointer"
-                                onClick={() => {
-                                  const ref = document.getElementById(song.id);
-                                  ref.play();
-                                  document.getElementById(
-                                    song.id + "-play",
-                                  ).style.display = "none";
-
-                                  document.getElementById(
-                                    song.id + "-pause",
-                                  ).style.display = "block";
-                                }}
-                              />
-                              <PauseIcon
-                                id={`${song.id}-pause`}
-                                className="w-5 h-5 ml-2 cursor-pointer hidden"
-                                onClick={() => {
-                                  const ref = document.getElementById(song.id);
-                                  ref.pause();
-                                  document.getElementById(
-                                    song.id + "-pause",
-                                  ).style.display = "none";
-
-                                  document.getElementById(
-                                    song.id + "-play",
-                                  ).style.display = "block";
-                                }}
-                              />
-                              <p
-                                className="ml-2 font-bold cursor-pointer hover:underline"
-                                onClick={() => navigate(`/app/song/${song.id}`)}
+                        feed.map(songs => (
+                          <div className="mt-2">
+                            <h1 className="my-1 text-lg font-bold">
+                              <span className="text-pink-400">#</span>{" "}
+                              {songs.genre}
+                            </h1>
+                            {songs.songs.map((song, key) => (
+                              <div
+                                className="w-full p-2 flex items-center justify-between rounded-lg bg-gray-100 mt-3"
+                                key={key}
                               >
-                                {song.author.username} - {song.name}
-                              </p>
-                            </div>
-                            {user.likedSongs &&
-                            user.likedSongs.find(
-                              usong => usong.id === song.id,
-                            ) ? (
-                              <button
-                                onClick={() => unlikeSong(song)}
-                                type="button"
-                                className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-white bg-red-500 hover:bg-red-400 transition ease-in-out duration-150"
-                                // onclick unfollow
-                                disabled=""
-                              >
-                                Liked
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => likeSong(song)}
-                                type="button"
-                                className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-gray-700 bg-pink-200 hover:bg-pink-300 transition ease-in-out duration-150"
-                                // onclick follow
-                                disabled=""
-                              >
-                                Like
-                              </button>
-                            )}
+                                <audio id={song.id} controlsList="nodownload">
+                                  <source src={song.fileUrl} type="audio/mp3" />
+                                  <source src={song.fileUrl} type="audio/aac" />
+                                  <source
+                                    src={song.fileUrl}
+                                    type="audio/flac"
+                                  />
+                                </audio>
+
+                                <div className="flex items-center">
+                                  <PlayIcon
+                                    id={`${song.id}-play`}
+                                    className="w-5 h-5 ml-2 cursor-pointer"
+                                    onClick={() => {
+                                      const ref = document.getElementById(
+                                        song.id,
+                                      );
+                                      ref.play();
+                                      document.getElementById(
+                                        song.id + "-play",
+                                      ).style.display = "none";
+
+                                      document.getElementById(
+                                        song.id + "-pause",
+                                      ).style.display = "block";
+                                    }}
+                                  />
+                                  <PauseIcon
+                                    id={`${song.id}-pause`}
+                                    className="w-5 h-5 ml-2 cursor-pointer hidden"
+                                    onClick={() => {
+                                      const ref = document.getElementById(
+                                        song.id,
+                                      );
+                                      ref.pause();
+                                      document.getElementById(
+                                        song.id + "-pause",
+                                      ).style.display = "none";
+
+                                      document.getElementById(
+                                        song.id + "-play",
+                                      ).style.display = "block";
+                                    }}
+                                  />
+                                  <p
+                                    className="ml-2 font-bold cursor-pointer hover:underline"
+                                    onClick={() =>
+                                      navigate(`/app/song/${song.id}`)
+                                    }
+                                  >
+                                    {song.author.username} - {song.name}
+                                  </p>
+                                </div>
+                                {user.likedSongs &&
+                                user.likedSongs.find(
+                                  usong => usong.id === song.id,
+                                ) ? (
+                                  <button
+                                    onClick={() => unlikeSong(song)}
+                                    type="button"
+                                    className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-white bg-red-500 hover:bg-red-400 transition ease-in-out duration-150"
+                                    // onclick unfollow
+                                    disabled=""
+                                  >
+                                    Liked
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => likeSong(song)}
+                                    type="button"
+                                    className="inline-flex items-center px-4 py-1 font-semibold leading-6 text-sm shadow rounded-md text-gray-700 bg-pink-200 hover:bg-pink-300 transition ease-in-out duration-150"
+                                    // onclick follow
+                                    disabled=""
+                                  >
+                                    Like
+                                  </button>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         ))
                       ) : (
